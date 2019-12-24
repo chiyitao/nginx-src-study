@@ -1,0 +1,35 @@
+* nginx source code study
+
+nginx源代码笔记。基于nginx版本1.16。
+
+从nginx核心部分开始，对nginx的基础数据结构、流程、模块进行分析整理。
+
+对于函数，在定义处才加以分析。
+
+对于复杂的结构题的类型的定义直接进行分析，并适当给出使用方法和示例。
+
+** nginx.c
+
+ngx_command_t的定义为
+
+#+BEGIN_SRC c
+
+typedef ngx_command_s ngx_command_t;
+
+#+END_SRC
+
+ngx_command_s的定义为
+
+#+BEGIN_SRC c
+
+struct ngx_command_s {
+    ngx_str_t             name;
+    ngx_uint_t            type;
+    char               *(*set)(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+    ngx_uint_t            conf;
+    ngx_uint_t            offset;
+    void                 *post;
+};
+
+#+END_SRC
+
