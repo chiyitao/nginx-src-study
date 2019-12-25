@@ -18,7 +18,7 @@ typedef ngx_command_s ngx_command_t;
 
 #+END_SRC
 
-ngx_command_s的定义为
+ngx_command_s的在ngx_conf_file中给出，定义为
 
 #+BEGIN_SRC c
 
@@ -33,3 +33,74 @@ struct ngx_command_s {
 
 #+END_SRC
 
+其中name的是类型为ngx_str_t的变量，通常以ngx_string类型进行初始化，是该
+命令类型的字面名称。
+
+type是类型信息，是一系列标志位做或运算的结果。例如：
+
+#+BEGIN_SRC c
+
+#define NGX_MAIN_CONF        0x01000000
+#define NGX_CONF_FLAG        0x00000200
+#define NGX_DIRECT_CONF      0x00010000
+
+#+END_SRC
+
+等。
+
+set是一个函数指针，返回char *类型，以ngx_conf_set_flag_slot()函数为例，
+该函数设置开关值：
+
+#+BEGIN_SRC c
+
+char *
+ngx_conf_set_flag_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    char  *p = conf; /* 指针来自于conf参数 */
+
+    ngx_str_t        *value; /* 指向ngx_str_t字符串类型的指针 */
+    ngx_flag_t       *fp; /* 指向标志类型ngx_flag_t类型的指针 */
+    ngx_conf_post_t  *post; /* 后处理函数 */
+
+    /* fp的值设置为指向conf的指针加上对应的cmd的中偏移位置值offset */
+    fp = (ngx_flag_t *) (p + cmd->offset); 
+
+    /* 如果不为未设置NGX_CONF_UNSET，则该值发生了重复设置 */
+    /* 返回表示重复含义的字符串"is duplicate" */
+    if (*fp != NGX_CONF_UNSET) {
+        return "is duplicate";
+    }
+
+    /* value设置为指向ngx_conf_t类型的指针cf中args成员的elts成员的地址 */
+    /* 相当于数组, value[0]指向的字符串的字面值，等同于cmd->name */
+    value = cf->args->elts;
+
+    /* 如果指令后面参数的字面值为"on"，则fp所指的元素为1 */
+    if (ngx_strcasecmp(value[1].data, (u_char *) "on") == 0) {
+        *fp = 1;
+
+    /* 如果指令后面参数的字面值为"on"，则fp所指的元素为0 */
+    } else if (ngx_strcasecmp(value[1].data, (u_char *) "off") == 0) {
+        *fp = 0;
+
+    /* 否则就是一个无效的字面值，返回NGX_CONF_ERROR */
+    } else {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                     "invalid value \"%s\" in \"%s\" directive, "
+                     "it must be \"on\" or \"off\"",
+                     value[1].data, cmd->name.data);
+        return NGX_CONF_ERROR;
+    }
+
+    /* 如果cmd->post指针不为空，则返回后续的post_handler()函数执行结果 */
+
+    if (cmd->post) {
+        post = cmd->post;
+        return post->post_handler(cf, post, fp);
+    }
+
+    /* 返回OK信息 */
+    return NGX_CONF_OK;
+}
+
+#+END_SRC
