@@ -104,3 +104,93 @@ ngx_conf_set_flag_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 }
 
 #+END_SRC
+
+conf字段待研究。(TODO)
+
+offsetof是一个宏，定义为
+
+#+BEGIN_SRC c
+
+#define offsetof(s, m)   (size_t)&(((s *)0)->m)
+
+#+END_SRC
+
+其中(s *)0是告诉编译器有一个指向结构s的指针，它指向的成员m的地址即为偏
+移值，并将该值转换为size_t类型。
+
+post是一个函数指针，多数情况下未启用。
+
+ngx_core_conf_t在ngx_cycle.h中定义为：
+
+#+BEGIN_SRC c
+
+typedef struct {
+    ngx_flag_t                daemon;
+    ngx_flag_t                master;
+
+    ngx_msec_t                timer_resolution;
+    ngx_msec_t                shutdown_timeout;
+
+    ngx_int_t                 worker_processes;
+    ngx_int_t                 debug_points;
+
+    ngx_int_t                 rlimit_nofile;
+    off_t                     rlimit_core;
+
+    int                       priority;
+
+    ngx_uint_t                cpu_affinity_auto;
+    ngx_uint_t                cpu_affinity_n;
+    ngx_cpuset_t             *cpu_affinity;
+
+    char                     *username;
+    ngx_uid_t                 user;
+    ngx_gid_t                 group;
+
+    ngx_str_t                 working_directory;
+    ngx_str_t                 lock_file;
+
+    ngx_str_t                 pid;
+    ngx_str_t                 oldpid;
+
+    ngx_array_t               env;
+    char                    **environment;
+
+    ngx_uint_t                transparent;  /* unsigned  transparent:1; */
+} ngx_core_conf_t;
+
+#+END_SRC
+
+daemon是是否后台运行的标志。
+
+master对应于master_process，是主进程模式的相关标志。
+
+在nginx.c中有这样一句：
+
+#+BEGIN_SRC c
+
+    if (ccf->master && ngx_process == NGX_PROCESS_SINGLE) {
+        ngx_process = NGX_PROCESS_MASTER;
+    }
+
+#+END_SRC
+
+即当core config的master值不为0，并且ngx_process为NGX_PROCESS_SINGLE时，
+ngx_process的值设置成NGX_PROCESS_MASTER。
+
+#+BEGIN_SRC c
+
+    if (ngx_process == NGX_PROCESS_SINGLE) {
+        ngx_single_process_cycle(cycle);
+
+    } else {
+        ngx_master_process_cycle(cycle);
+    }
+
+#+END_SRC
+
+当ngx_process为NGX_PROCESS_SINGLE时，执行
+ngx_single_process_cycle(cycle)函数；否则执行
+ngx_master_process_cycle(cycle)函数。
+
+
