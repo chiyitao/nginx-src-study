@@ -8,7 +8,7 @@ nginx源代码笔记。基于nginx版本1.16。
 
 对于复杂的结构体的类型的定义直接进行分析，并适当给出使用方法和示例。
 
-** nginx.c
+** 开始分析
 
 ngx_command_t的定义为
 
@@ -192,5 +192,174 @@ ngx_process的值设置成NGX_PROCESS_MASTER。
 当ngx_process为NGX_PROCESS_SINGLE时，执行
 ngx_single_process_cycle(cycle)函数；否则执行
 ngx_master_process_cycle(cycle)函数。
+
+在os/unix/ngx_process_cycle.c中可以找到ngx_single_process_cycle()函数的
+定义：
+
+其中首先是ngx_set_environment(cycle, NULL)的函数调用。
+
+在函数ngx_set_environment()中，ccf是指向ngx_core_conf_t的指针，它首先通
+过ngx_get_conf函数获得ngx_core_module的指向ngx_core_conf_t结构体的指针。
+
+当第二个参数为NULL时，返回ccf中的environment成员。
+
+ngx_set_environment()函数只是简单返回了返回ccf中的environment成员，而
+cycle的主要的初始化工作都在nginx的main函数中进行。
+
+#+BEGIN_SRC c
+
+    ngx_memzero(&init_cycle, sizeof(ngx_cycle_t));
+    init_cycle.log = log;
+    ngx_cycle = &init_cycle;
+
+#+END_SRC
+
+log是ngx_log_init(ngx_prefix)中初始化的ngx_log_t类型指针。在之前的注释
+中有：
+
+#+BEGIN_SRC c
+  
+  /* init_cycle.log是必需的，他用于信号量处理和ngx_process_options() */
+  
+#+END_SRC
+
+ngx_cycle的值被设置为init_cycle的地址。
+
+#+BEGIN_SRC c
+
+    init_cycle.pool = ngx_create_pool(1024, log);
+
+#+END_SRC
+
+通过调用ngx_create_pool()函数，创建了一个pool类型的内存池。用于nginx内
+存的分配。
+
+函数ngx_save_argv(&init_cycle, argc, argv)保存了命令行参数传入的内容。
+
+ngx_cycle_t的定义ngx_cycle_s如下：
+
+#+BEGIN_SRC c
+
+struct ngx_cycle_s {
+    void                  ****conf_ctx;
+    ngx_pool_t               *pool;
+
+    ngx_log_t                *log;
+    ngx_log_t                 new_log;
+
+    ngx_uint_t                log_use_stderr;  /* unsigned  log_use_stderr:1; */
+
+    ngx_connection_t        **files;
+    ngx_connection_t         *free_connections;
+    ngx_uint_t                free_connection_n;
+
+    ngx_module_t            **modules;
+    ngx_uint_t                modules_n;
+    ngx_uint_t                modules_used;    /* unsigned  modules_used:1; */
+
+    ngx_queue_t               reusable_connections_queue;
+    ngx_uint_t                reusable_connections_n;
+
+    ngx_array_t               listening;
+    ngx_array_t               paths;
+
+    ngx_array_t               config_dump;
+    ngx_rbtree_t              config_dump_rbtree;
+    ngx_rbtree_node_t         config_dump_sentinel;
+
+    ngx_list_t                open_files;
+    ngx_list_t                shared_memory;
+
+    ngx_uint_t                connection_n;
+    ngx_uint_t                files_n;
+
+    ngx_connection_t         *connections;
+    ngx_event_t              *read_events;
+    ngx_event_t              *write_events;
+
+    ngx_cycle_t              *old_cycle;
+
+    ngx_str_t                 conf_file;
+    ngx_str_t                 conf_param;
+    ngx_str_t                 conf_prefix;
+    ngx_str_t                 prefix;
+    ngx_str_t                 lock_file;
+    ngx_str_t                 hostname;
+};
+
+#+END_SRC
+
+conf_ctx是一个四重指针。经常作为ngx_get_conf()等函数的参数。
+
+ngx_get_conf()函数是一个宏，定义为：
+
+#+BEGIN_SRC c
+
+#define ngx_get_conf(conf_ctx, module)  conf_ctx[module.index]
+
+#+END_SRC
+
+conf_ctx可看作是一个数组，返回的是里面第module.index个元素。
+
+module即ngx_module_t类型，定义如下：
+
+#+BEGIN_SRC c
+
+struct ngx_module_s {
+    ngx_uint_t            ctx_index;
+    ngx_uint_t            index;
+
+    char                 *name;
+
+    ngx_uint_t            spare0;
+    ngx_uint_t            spare1;
+
+    ngx_uint_t            version;
+    const char           *signature;
+
+    void                 *ctx;
+    ngx_command_t        *commands;
+    ngx_uint_t            type;
+
+    ngx_int_t           (*init_master)(ngx_log_t *log);
+
+    ngx_int_t           (*init_module)(ngx_cycle_t *cycle);
+
+    ngx_int_t           (*init_process)(ngx_cycle_t *cycle);
+    ngx_int_t           (*init_thread)(ngx_cycle_t *cycle);
+    void                (*exit_thread)(ngx_cycle_t *cycle);
+    void                (*exit_process)(ngx_cycle_t *cycle);
+
+    void                (*exit_master)(ngx_cycle_t *cycle);
+
+    uintptr_t             spare_hook0;
+    uintptr_t             spare_hook1;
+    uintptr_t             spare_hook2;
+    uintptr_t             spare_hook3;
+    uintptr_t             spare_hook4;
+    uintptr_t             spare_hook5;
+    uintptr_t             spare_hook6;
+    uintptr_t             spare_hook7;
+};
+
+#+END_SRC
+
+其中ctx_index至signature成员变量的初始赋值，都由宏NGX_MODULE_V1给出。
+
+ctx指向本模块对应的ctx模块，譬如nginx_core_module对应的ctx，就是在同文
+件中定义的ngx_core_module_ctx。
+
+commands对应的是一系列的命令，daemon，master_process等。
+
+type是一个表示该模块类型的量。对于core_module来说就是NGX_CORE_MODULE，
+对于http模块就是NGX_HTTP_MODULE。
+
+spare_hook*都赋值为0，由宏NGX_MODULE_V1_PADDING给出。
+
+以上定义是nginx的模块的基本定义，在各个模块的定义中都是相同的结构。
+
+ngx_cycle_s中的pool是一块内存区域。用于分配内存使用。
+
+ngx_cycle_s中的log成员是ngx_log_t类型日志变量。
 
 
