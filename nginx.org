@@ -362,4 +362,139 @@ ngx_cycle_s中的pool是一块内存区域。用于分配内存使用。
 
 ngx_cycle_s中的log成员是ngx_log_t类型日志变量。
 
+ngx_log_s中的log_level成员变量指定日志记录等级。
+
+最高值为NGX_LOG_DEBUG=8，用于nginx调试。
+
+file为指向ngx_open_file_t类型的指针。
+
+ngx_open_file_s的结构中包括：
+
+ngx_fd_t类型的文件描述符fd，而ngx_fd_t定义为int；
+
+ngx_str_t类型的文件名称name；
+
+flush函数指针，用于清除文件内容；
+
+data额外的数据指针。
+
+ngx_log_s中的connection是ngx_atomic_uint_t类型，这是ngx中的原子类型。
+
+根据不同环境，不同编译器，不同处理器，ngx_atomic_uint_t的定义有所不同，但总的来说是一个整数。
+
+其对应的函数有ngx_atomic_cmp_set()（比较以及设置函数），ngx_atomic_fetch_add()（取值并相加函数）。
+
+ngx_log_s中定义的handler是ngx_log_handler_pt类型的函数指针，对应data的空指针。
+
+writer是ngx_log_writer_pt类型的函数指针，对应wdata的空指针。
+
+action是char*类型的静态字符串。
+
+next是指向下一个ngx_log_t变量的指针。
+
+ngx_cycle_s中的new_log是ngx_log_t结构类型的变量，是指新的日志结构体变量。
+
+ngx_cycle_s中的log_use_stderr是一个标志，用来指明是否使用stderr作为输出。
+
+ngx_cycle_s中包含的files变量是指向ngx_connection_t类型的双重指针。
+
+ngx_connection_s是经常遇到的结构体，定义为：
+
+#+BEGIN_SRC c
+
+struct ngx_connection_s {
+    void               *data;
+    ngx_event_t        *read;
+    ngx_event_t        *write;
+
+    ngx_socket_t        fd;
+
+    ngx_recv_pt         recv;
+    ngx_send_pt         send;
+    ngx_recv_chain_pt   recv_chain;
+    ngx_send_chain_pt   send_chain;
+
+    ngx_listening_t    *listening;
+
+    off_t               sent;
+
+    ngx_log_t          *log;
+
+    ngx_pool_t         *pool;
+
+    int                 type;
+
+    struct sockaddr    *sockaddr;
+    socklen_t           socklen;
+    ngx_str_t           addr_text;
+
+    ngx_str_t           proxy_protocol_addr;
+    in_port_t           proxy_protocol_port;
+
+#if (NGX_SSL || NGX_COMPAT)
+    ngx_ssl_connection_t  *ssl;
+#endif
+
+    ngx_udp_connection_t  *udp;
+
+    struct sockaddr    *local_sockaddr;
+    socklen_t           local_socklen;
+
+    ngx_buf_t          *buffer;
+
+    ngx_queue_t         queue;
+
+    ngx_atomic_uint_t   number;
+
+    ngx_uint_t          requests;
+
+    unsigned            buffered:8;
+
+    unsigned            log_error:3;     /* ngx_connection_log_error_e */
+
+    unsigned            timedout:1;
+    unsigned            error:1;
+    unsigned            destroyed:1;
+
+    unsigned            idle:1;
+    unsigned            reusable:1;
+    unsigned            close:1;
+    unsigned            shared:1;
+
+    unsigned            sendfile:1;
+    unsigned            sndlowat:1;
+    unsigned            tcp_nodelay:2;   /* ngx_connection_tcp_nodelay_e */
+    unsigned            tcp_nopush:2;    /* ngx_connection_tcp_nopush_e */
+
+    unsigned            need_last_buf:1;
+
+#if (NGX_HAVE_AIO_SENDFILE || NGX_COMPAT)
+    unsigned            busy_count:2;
+#endif
+
+#if (NGX_THREADS || NGX_COMPAT)
+    ngx_thread_task_t  *sendfile_task;
+#endif
+};
+
+#+END_SRC
+
+ngx_connection_s中的data类型是空指针，表示该结构体中指向的数据部分。
+
+read表示指向ngx_event_t类型的指针。
+
+ngx_event_t也是nginx中的重要结构体。
+
+ngx_event_s中的data表示该事件中包括的数据指针。
+
+ngx_event_s中包含write成员，唯一的置位函数在ngx_get_connection中。
+
+ngx_get_connection()是获得当前连接的函数。
+
+
+
+
+
+
+
 
