@@ -572,6 +572,37 @@ rev->data和wev->data均设置为c。
 
 ngx_get_connection()返回c。
 
+ngx_event_s中的accept置位语句在ngx_event_process_init()中。
+
+首先调用ngx_get_conf()获得了ngx_core_module的ngx_core_conf_t类型的变量。
+
+调用ngx_event_get_conf()获得ngx_event_core_module的ngx_event_conf_t的变量。
+
+ngx_event_get_conf()的宏定义如下：
+
+#+BEGIN_SRC c
+
+#define ngx_event_get_conf(conf_ctx, module)                                  \
+             (*(ngx_get_conf(conf_ctx, ngx_events_module))) [module.ctx_index]
+
+#+END_SRC
+
+如果ccf->master不为零，并且ccf->worker_processes大于1，并且ecf->accpet_mutex大于1。
+
+则设置ngx_use_accept_mutex为1，ngx_accept_mutex_held为0，ngx_accept_mutex_delay为ecf->accept_mutex_delay；否则设置ngx_use_accept_mutex为0。
+
+初始化ngx_posted_accept_events以及ngx_posted_events，它们都是全局变量。
+
+调用ngx_event_timer_init()进行初始化，其实是初始化了ngx_rbtree，即ngx中的红黑树，并没有调用log参数。
+
+接下来的循环中，当cycle->module[m]存在：
+
+如果cycle中的第m个模块的类型不是NGX_EVENT_MODULE，则继续下一次循环；如果第m个模块的ctx_index同ecf的use成员不相等，则继续下一个循环。
+
+直到type为NGX_EVENT_MODULE并且ctx_index与ecf->use相等，指向ngx_event_module_t类型的指针module才指向cycle->module[m]->ctx。
+
+
+
 
 
 
