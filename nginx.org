@@ -487,9 +487,91 @@ ngx_event_t也是nginx中的重要结构体。
 
 ngx_event_s中的data表示该事件中包括的数据指针。
 
-ngx_event_s中包含write成员，唯一的置位函数在ngx_get_connection中。
+ngx_event_s中包含write成员，唯一的置位函数在ngx_get_connection()中。
 
 ngx_get_connection()是获得当前连接的函数。
+
+在ngx_get_connection()函数中，instance变量是一个标志。
+
+rev，wev是指向ngx_event_t类型的指针。
+
+c是指向ngx_connection_t类型的指针。
+
+nginx的注释指出：UNIX的socket是int类型的。
+
+当ngx_cycle->files不为空，并且s大于等于ngx_cycle->files_n时，返回NULL。
+
+这里的意思是ngx_cycle->files是存在的，并且ngx_get_connection的传入参数
+s，大于files_n的话，就返回一个空的连接类型指针（ngx_connection_t *）。
+
+可见ngx_cycle是全局的。
+
+之后c被赋值为ngx_cycle中的free_connections成员。
+
+这里free_connections是指向空闲连接的指针。
+
+当c为NULL时，则调用ngx_drain_connections()函数，消耗连接。
+
+ngx_drain_connections()函数中，主要是查询对cycle中的队列queue中存在的连接情况。
+
+#+BEGIN_SRC c
+
+    n = ngx_max(ngx_min(32, cycle->reusable_connections_n / 8), 1);
+
+#+END_SRC
+
+上述语句中，首先取32和cycle->reusable_connections_n / 8的较小值，即当cycle_reusable_connections_n大于32 * 8，即256时，n取32。
+
+当8 <= cycle->reusable_connections_n < 256时，n才取到cycle->reusable_connections_n / 8的值；当cycle->reusable_connections_n < 8时，n取1。
+
+可见n的取值范围为[1, 32]。
+
+验证queue为空的函数是ngx_queue_empty()，它的定义是一个宏，(h == (h)->prev)。
+
+队列的初始化函数是ngx_queue_init(q)，它将q中的成员prev和next都指向自身。
+
+因而当queue的prev是自身时，队列就为空。
+
+ngx_queue_data()是指向包含了q的结构体的实例的指针，其中用到了offsetof函数。
+
+之后设置c->close的标志位置为1，表示连接关闭，接下来使用
+c->read->handler处理对应的事件，完成了handler事件之后，可以认为是drain
+完毕。
+
+若此时ngx_get_connection()中的c仍为NULL，则表明连接数不够，返回NULL。
+
+如果c不为NULL，则ngx_cycle->free_connections为c->data的值，并且
+ngx_cycle->free_connection_n减一。
+
+如果ngx_cycle->files是存在的，并且ngx_cycle->files[s]为空，则将当前的空
+闲的c赋给ngx_cycle->files[s]。
+
+rev以及wev分别赋值为c中的读事件和写事件。
+
+下面是重置指向ngx_connection_t类型的指针c。
+
+调用ngx_memzero重置结构体为0。
+
+将c->read置为rev，c->write置为wev。
+
+c->fd为传入的ngx_socket_t类型的参数s。
+
+c->log为log参数。
+
+之后将rev->instance值保存为instance。
+
+再将rev和wev指向的区域置0。
+
+并且rev->instance和wev->instance的值为刚才保存的instance值求非的结果。
+
+rev->index和rev->index为无效索引NGX_INVALID_INDEX。
+
+rev->data和wev->data均设置为c。
+
+并将wev->write位置为1。
+
+ngx_get_connection()返回c。
+
 
 
 
