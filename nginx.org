@@ -601,13 +601,56 @@ ngx_event_get_conf()的宏定义如下：
 
 直到type为NGX_EVENT_MODULE并且ctx_index与ecf->use相等，指向ngx_event_module_t类型的指针module才指向cycle->module[m]->ctx。
 
+ngx_module_s中的ctx是一个空指针，可以赋给任何指针类型。
 
+由于ngx_event_module_t的定义是
 
+#+BEGIN_SRC c
 
+typedef struct {
+    ngx_str_t              *name;
 
+    void                 *(*create_conf)(ngx_cycle_t *cycle);
+    char                 *(*init_conf)(ngx_cycle_t *cycle, void *conf);
 
+    ngx_event_actions_t     actions;
+} ngx_event_module_t;
 
+#+END_SRC
 
+因而在
 
+#+BEGIN_SRC c
 
+if (module->actions.init(cycle, ngx_timer_resolution) != NGX_OK) {
+    /* fatal */
+    exit(2);
+}
+
+#+END_SRC
+
+中，module的actions成员的类型是ngx_event_action_t，其定义为一系列函数指针构成的结构体
+
+#+BEGIN_SRC c
+
+typedef struct {
+    ngx_int_t  (*add)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
+    ngx_int_t  (*del)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
+
+    ngx_int_t  (*enable)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
+    ngx_int_t  (*disable)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
+
+    ngx_int_t  (*add_conn)(ngx_connection_t *c);
+    ngx_int_t  (*del_conn)(ngx_connection_t *c, ngx_uint_t flags);
+
+    ngx_int_t  (*notify)(ngx_event_handler_pt handler);
+
+    ngx_int_t  (*process_events)(ngx_cycle_t *cycle, ngx_msec_t timer,
+                                 ngx_uint_t flags);
+
+    ngx_int_t  (*init)(ngx_cycle_t *cycle, ngx_msec_t timer);
+    void       (*done)(ngx_cycle_t *cycle);
+} ngx_event_actions_t;
+
+#+END_SRC
 
